@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor de Pedidos</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <img src="assets/logo.png" alt="Orifer" class="logo">
+    <h1>Gestor de Pedidos</h1>
+  </div>
+  <div class="header-actions">
+    <button id="btn-edit-pedido" class="btn btn-warning" title="Abrir un pedido guardado para modificarlo">Editar pedido</button>
+    <button id="btn-clear" class="btn btn-danger" title="Limpia todo el formulario">Nuevo pedido</button>
+    <button id="btn-save" class="btn btn-success" title="Guarda el pedido como archivo JSON en la carpeta 'orders'">Guardar pedido</button>
+    <button id="btn-pdf" class="btn btn-primary">Generar PDF</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- DATOS GENERALES -->
+  <section class="card">
+    <h2>Datos del pedido</h2>
+    <div class="grid grid-4">
+      <div class="field">
+        <label for="fecha-pedido">Fecha del pedido</label>
+        <input type="date" id="fecha-pedido">
+      </div>
+      <div class="field">
+        <label for="numero-orden">Número de orden</label>
+        <input type="text" id="numero-orden" placeholder="Ej: OP-0001">
+      </div>
+      <div class="field">
+        <div class="field-label-row">
+          <label for="cliente">Nombre del cliente</label>
+          <div class="switch-wrap">
+            <span class="switch-text" id="cliente-mode-label">Manual</span>
+            <button type="button" id="cliente-toggle" class="switch" role="switch" aria-checked="false" title="Cambiar entre texto libre y lista de clientes habituales">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </button>
+          </div>
+        </div>
+        <input type="text" id="cliente" placeholder="Ej: Almacenes XYZ">
+        <select id="cliente-select" hidden></select>
+      </div>
+      <div class="field">
+        <label for="fecha-entrega">Fecha de entrega</label>
+        <input type="date" id="fecha-entrega">
+      </div>
+    </div>
+  </section>
+
+  <!-- ESPECIFICACIONES -->
+  <section class="card">
+    <div class="card-header-row">
+      <h2>Especificaciones (tela / tallas / cuello)</h2>
+      <button id="btn-add-spec-row" class="btn btn-small">+ Agregar fila</button>
+    </div>
+    <div class="table-wrap">
+      <table id="spec-table">
+        <thead>
+          <tr>
+            <th>Tipo de tela</th>
+            <th>Tallas</th>
+            <th>Tipo de cuello</th>
+            <th class="col-action"></th>
+          </tr>
+        </thead>
+        <tbody id="spec-table-body">
+          <!-- filas dinámicas -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ITEMS / TAREAS -->
+  <section class="card">
+    <div class="card-header-row">
+      <h2>Items del pedido</h2>
+      <button id="btn-add-item" class="btn btn-small">+ Agregar item</button>
+    </div>
+    <div id="items-container"></div>
+  </section>
+
+  <!-- ANEXOS -->
+  <section class="card">
+    <div class="card-header-row">
+      <h2>Anexos</h2>
+      <label class="btn btn-small">
+        + Agregar imagen
+        <input type="file" id="annex-input" accept="image/*" multiple hidden>
+      </label>
+    </div>
+    <p class="hint">Imágenes de referencia generales del pedido (no asociadas a un item específico).</p>
+    <div id="annex-gallery" class="gallery"></div>
+  </section>
+
+</main>
+
+<!-- plantilla de fila de especificación (oculta, clonada por JS) -->
+<template id="tpl-spec-row">
+  <tr class="spec-row">
+    <td><input type="text" class="spec-tela" placeholder="Ej: Algodón 100%"></td>
+    <td><input type="text" class="spec-tallas" placeholder="Ej: S, M, L, XL"></td>
+    <td><input type="text" class="spec-cuello" placeholder="Ej: Redondo"></td>
+    <td class="col-action"><button class="btn-icon btn-remove-row" title="Eliminar fila">✕</button></td>
+  </tr>
+</template>
+
+<!-- plantilla de item (oculta, clonada por JS) -->
+<template id="tpl-item">
+  <div class="item-card">
+    <div class="item-card-header">
+      <input type="text" class="item-title" placeholder="Título del item (ej: Corte, Confección, Bordado...)">
+      <button class="btn-icon btn-remove-item" title="Eliminar item">✕</button>
+    </div>
+    <div class="field">
+      <label>Responsable</label>
+      <select class="item-responsible"></select>
+    </div>
+    <div class="field">
+      <label>Tareas</label>
+      <ul class="task-list"></ul>
+    </div>
+    <div class="item-actions-row">
+      <button class="btn btn-small btn-add-task">+ Agregar tarea</button>
+      <label class="btn btn-small file-btn item-add-image">
+        + Agregar imagen
+        <input type="file" class="item-image-input" accept="image/*" multiple hidden>
+      </label>
+    </div>
+    <div class="gallery item-gallery"></div>
+  </div>
+</template>
+
+<template id="tpl-task">
+  <li class="task-row">
+    <input type="text" class="task-text" placeholder="Descripción de la tarea">
+    <button class="btn-icon btn-remove-task" title="Eliminar tarea">✕</button>
+  </li>
+</template>
+
+<template id="tpl-image-thumb">
+  <div class="thumb">
+    <img src="" alt="imagen">
+    <button class="btn-icon btn-remove-thumb" title="Eliminar imagen">✕</button>
+  </div>
+</template>
+
+<!-- selector de pedidos guardados -->
+<div id="pedido-picker-modal" class="modal-overlay" hidden>
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>Editar pedido</h3>
+      <button id="btn-close-modal" class="btn-icon" title="Cerrar">✕</button>
+    </div>
+    <p class="hint">Selecciona el pedido que deseas modificar. Se sobrescribirá el formulario actual.</p>
+    <ul id="pedido-picker-list" class="picker-list"></ul>
+    <div class="modal-footer">
+      <button id="btn-pick-manual" class="btn btn-secondary btn-small">Elegir archivo manualmente…</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="edit-pedido-input" accept="application/json,.json" hidden>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="assets/logo.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
