@@ -1,0 +1,80 @@
+{
+  "general": {
+    "fechaPedido": "2026-08-24",
+    "cliente": "Luisana Andrade",
+    "fechaEntrega": "2026-08-26",
+    "numeroOrden": "55"
+  },
+  "specs": [
+    {
+      "producto": "Franela",
+      "tela": "Algodon 90%",
+      "tallas": "2-L, 12-2XL",
+      "cuello": "R",
+      "corte": "D",
+      "color": "Blanco"
+    }
+  ],
+  "items": [
+    {
+      "title": "Tela",
+      "responsible": "Duanscel",
+      "tasks": [
+        "Comprar 6 kg de blanco 18-1 en RVE (Divisas)"
+      ],
+      "images": [],
+      "table": null
+    },
+    {
+      "title": "Corte",
+      "responsible": "Vladimir",
+      "tasks": [
+        "Si sobra tela, cortar adicionales por si salen manchadas"
+      ],
+      "images": [],
+      "table": null
+    },
+    {
+      "title": "DTF",
+      "responsible": "Luisana",
+      "tasks": [
+        "Revisa la caja para usar las que ya estén listas",
+        "Mete etiquetas de 6 de ancho"
+      ],
+      "images": [],
+      "table": {
+        "titles": [
+          "L/Dama",
+          "2XL/Dama"
+        ],
+        "values": [
+          "1 Rosario del Valle (44 cm de alto)\n1 Rostro de Jesús (23 de alto)",
+          "2 Jésus de Misericordia (25 cm alto)\n2 Guadalupe (25 cm alto)\n2 Coromoto (24 de alto)\n1 Milagrosa (25 de alto)\n1 Virgen de la Chinita (25 de alto) \n1 Padre Pio (25 de alto)\n1 San Miguel Arcangel (27 de alto)\n1 San Benito (25 de alto)\n1 Papa Juan Pablo (25 de alto)"
+        ]
+      }
+    },
+    {
+      "title": "Remate",
+      "responsible": "Emilce",
+      "tasks": [
+        "Cantidad Total del Pedido: 14"
+      ],
+      "images": [],
+      "table": null
+    },
+    {
+      "title": "PLANCHAR/EMPAQUETAR",
+      "responsible": "Arianna",
+      "tasks": [
+        "Las 14 Franelas son de Dama",
+        "S, M, L (3 dedos del cuello) y usar las etiquetas aproximadamente de 6 cm de ancho",
+        "XL, 2XL (4 dedos del cuello) y usar las etiquetas aproximadamente de 6.5 cm de ancho",
+        "Hay una lista con la foto de cada virgen por si tienen dudas (Pedir a Luisana)",
+        "Para el San Miguel 2XL, dejar alrededor de 5 cm ente el cuello y las alas"
+      ],
+      "images": [],
+      "table": null
+    }
+  ],
+  "annexes": []
+}

@@ -71,6 +71,12 @@
     return `${d}/${m}/${y}`;
   }
 
+  function sortAlphaDashFirst(list) {
+    const dash = list.filter((v) => v === "-");
+    const rest = list.filter((v) => v !== "-").sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+    return [...dash, ...rest];
+  }
+
   function slugify(str) {
     return (str || "")
       .toString()
@@ -84,12 +90,25 @@
 
   const specTableBody = $("#spec-table-body");
 
+  const PRODUCTO_OPTIONS = ["-", "Body", "Chaqueta", "Crop-Top", "Franela", "Franelilla", "Sueter"];
+  const CUELLO_OPTIONS = ["-", "V", "R"];
+  const CORTE_OPTIONS = ["-", "D", "C"];
+
+  function populateSelect(select, options, value) {
+    const sorted = sortAlphaDashFirst(options);
+    select.innerHTML = sorted.map((o) => `<option value="${o}">${o}</option>`).join("");
+    select.value = options.includes(value) ? value : "-";
+  }
+
   function addSpecRow(data) {
     const row = cloneTpl("tpl-spec-row");
+    populateSelect($(".spec-producto", row), PRODUCTO_OPTIONS, data && data.producto);
+    populateSelect($(".spec-cuello", row), CUELLO_OPTIONS, data && data.cuello);
+    populateSelect($(".spec-corte", row), CORTE_OPTIONS, data && data.corte);
     if (data) {
       $(".spec-tela", row).value = data.tela || "";
       $(".spec-tallas", row).value = data.tallas || "";
-      $(".spec-cuello", row).value = data.cuello || "";
+      $(".spec-color", row).value = data.color || "";
     }
     $(".btn-remove-row", row).addEventListener("click", () => row.remove());
     specTableBody.appendChild(row);
@@ -117,7 +136,7 @@
   function populateResponsableSelect(select) {
     select.innerHTML =
       '<option value="">Selecciona un responsable</option>' +
-      RESPONSABLES.map((name) => `<option value="${name}">${name}</option>`).join("");
+      sortAlphaDashFirst(RESPONSABLES).map((name) => `<option value="${name}">${name}</option>`).join("");
   }
 
   function addTaskRow(taskListEl, text) {
@@ -125,6 +144,60 @@
     $(".task-text", row).value = text || "";
     $(".btn-remove-task", row).addEventListener("click", () => row.remove());
     taskListEl.appendChild(row);
+  }
+
+  // ---------- Item table (optional free-form table per item) ----------
+
+  function autoResizeTextarea(el) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  function addTableColumn(tableWrap, title, value) {
+    const headerRow = $(".item-table-headers", tableWrap);
+    const dataRow = $(".item-table-row", tableWrap);
+
+    const th = cloneTpl("tpl-item-table-col");
+    $(".item-table-col-title", th).value = title || "";
+    $(".btn-remove-table-col", th).addEventListener("click", () => {
+      const idx = Array.from(headerRow.children).indexOf(th);
+      th.remove();
+      if (dataRow.children[idx]) dataRow.children[idx].remove();
+    });
+    headerRow.appendChild(th);
+
+    const td = cloneTpl("tpl-item-table-cell");
+    const textarea = $(".item-table-cell", td);
+    textarea.value = value || "";
+    textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+    dataRow.appendChild(td);
+    autoResizeTextarea(textarea);
+  }
+
+  function setupItemTable(item, gallery, data) {
+    const tableWrap = cloneTpl("tpl-item-table");
+    item.insertBefore(tableWrap, gallery);
+
+    $(".btn-add-table-col", tableWrap).addEventListener("click", () => addTableColumn(tableWrap));
+    $(".btn-remove-item-table", tableWrap).addEventListener("click", () => {
+      tableWrap.hidden = true;
+      $(".item-table-headers", tableWrap).innerHTML = "";
+      $(".item-table-row", tableWrap).innerHTML = "";
+    });
+
+    $(".btn-add-table", item).addEventListener("click", () => {
+      if (!tableWrap.hidden) return;
+      tableWrap.hidden = false;
+      if (!$(".item-table-headers", tableWrap).children.length) {
+        addTableColumn(tableWrap);
+        addTableColumn(tableWrap);
+      }
+    });
+
+    if (data && data.table && Array.isArray(data.table.titles) && data.table.titles.length) {
+      data.table.titles.forEach((title, i) => addTableColumn(tableWrap, title, data.table.values && data.table.values[i]));
+      tableWrap.hidden = false;
+    }
   }
 
   function addItem(data) {
@@ -153,6 +226,8 @@
       addTaskRow(taskList);
     }
 
+    setupItemTable(item, gallery, data);
+
     if (data && Array.isArray(data.images)) {
       data.images.forEach((img) => addThumb(gallery, img));
     }
@@ -178,7 +253,7 @@
 
   clienteSelect.innerHTML =
     '<option value="">Selecciona un cliente</option>' +
-    CLIENTES_HABITUALES.map((name) => `<option value="${name}">${name}</option>`).join("");
+    sortAlphaDashFirst(CLIENTES_HABITUALES).map((name) => `<option value="${name}">${name}</option>`).join("");
 
   function setClienteMode(isList) {
     clienteToggle.setAttribute("aria-checked", isList ? "true" : "false");
@@ -205,28 +280,47 @@
 
   function setClienteValue(value) {
     const v = value || "";
+    const inList = CLIENTES_HABITUALES.includes(v);
     clienteInput.value = v;
-    clienteSelect.value = CLIENTES_HABITUALES.includes(v) ? v : "";
-    setClienteMode(false);
+    clienteSelect.value = inList ? v : "";
+    // Default to "Lista" whenever there's no value yet or it matches a known
+    // client; only fall back to "Manual" so a custom saved name stays visible.
+    setClienteMode(!v || inList);
   }
+
+  setClienteMode(true);
 
   // ---------- Collect / restore data ----------
 
   function collectData() {
     const specs = $$(".spec-row", specTableBody).map((row) => ({
+      producto: $(".spec-producto", row).value.trim(),
       tela: $(".spec-tela", row).value.trim(),
       tallas: $(".spec-tallas", row).value.trim(),
       cuello: $(".spec-cuello", row).value.trim(),
+      corte: $(".spec-corte", row).value.trim(),
+      color: $(".spec-color", row).value.trim(),
     }));
 
-    const items = $$(".item-card", itemsContainer).map((itemEl) => ({
-      title: $(".item-title", itemEl).value.trim(),
-      responsible: $(".item-responsible", itemEl).value.trim(),
-      tasks: $$(".task-text", itemEl)
-        .map((i) => i.value.trim())
-        .filter(Boolean),
-      images: $$(".thumb", $(".item-gallery", itemEl)).map((t) => t._image),
-    }));
+    const items = $$(".item-card", itemsContainer).map((itemEl) => {
+      const tableWrap = $(".item-table-wrap", itemEl);
+      const colTitles = $$(".item-table-col-title", itemEl);
+      const hasTable = tableWrap && !tableWrap.hidden && colTitles.length > 0;
+      return {
+        title: $(".item-title", itemEl).value.trim(),
+        responsible: $(".item-responsible", itemEl).value.trim(),
+        tasks: $$(".task-text", itemEl)
+          .map((i) => i.value.trim())
+          .filter(Boolean),
+        images: $$(".thumb", $(".item-gallery", itemEl)).map((t) => t._image),
+        table: hasTable
+          ? {
+              titles: colTitles.map((i) => i.value.trim()),
+              values: $$(".item-table-cell", itemEl).map((i) => i.value),
+            }
+          : null,
+      };
+    });
 
     const annexes = $$(".thumb", annexGallery).map((t) => t._image);
 
@@ -585,6 +679,7 @@
 
   const PDF_PRIMARY = [20, 107, 184]; // brand navy (logo)
   const PDF_ACCENT = [0, 167, 219]; // brand cyan (logo)
+  const PDF_BORDER = [150, 156, 163]; // darkened so borders survive printing
   const PDF_RADIUS = 2; // corner radius (mm) for boxes/tables in the PDF
 
   function ensureSpace(doc, y, needed, margins) {
@@ -638,7 +733,7 @@
       ry += rowHeights[ri];
     });
 
-    doc.setDrawColor(223, 226, 230);
+    doc.setDrawColor(...PDF_BORDER);
     doc.setLineWidth(0.2);
     let hy = startY;
     for (let i = 0; i < rowHeights.length - 1; i++) {
@@ -653,7 +748,7 @@
 
     doc.restoreGraphicsState();
 
-    doc.setDrawColor(223, 226, 230);
+    doc.setDrawColor(...PDF_BORDER);
     doc.setLineWidth(0.3);
     doc.roundedRect(x, startY, width, totalHeight, PDF_RADIUS, PDF_RADIUS, "S");
 
@@ -700,7 +795,7 @@
     y = ensureSpace(doc, y, totalHeight, margins);
     const startY = y;
 
-    doc.setDrawColor(223, 226, 230);
+    doc.setDrawColor(...PDF_BORDER);
     doc.setLineWidth(0.3);
     doc.roundedRect(x, startY, width, totalHeight, PDF_RADIUS, PDF_RADIUS, "S");
 
@@ -724,7 +819,7 @@
 
       if (i < tasks.length - 1) {
         const dividerY = ry + rowH;
-        doc.setDrawColor(223, 226, 230);
+        doc.setDrawColor(...PDF_BORDER);
         doc.setLineWidth(0.2);
         doc.line(x, dividerY, x + width, dividerY);
       }
@@ -764,7 +859,7 @@
     images.forEach((img) => {
       if (col === 0) y = ensureSpace(doc, y, cellH + gap, margins);
       const x = x0 + col * (cellW + gap);
-      doc.setDrawColor(210);
+      doc.setDrawColor(...PDF_BORDER);
       doc.setLineWidth(0.2);
       doc.roundedRect(x, y, cellW, cellH, PDF_RADIUS, PDF_RADIUS, "S");
       const scale = Math.min(cellW / img.w, cellH / img.h);
@@ -835,22 +930,36 @@
     });
     y += 10;
 
-    const specRows = data.specs.filter((s) => s.tela || s.tallas || s.cuello);
+    const specRows = data.specs.filter(
+      (s) =>
+        s.tela ||
+        s.tallas ||
+        s.color ||
+        (s.producto && s.producto !== "-") ||
+        (s.cuello && s.cuello !== "-") ||
+        (s.corte && s.corte !== "-")
+    );
     if (specRows.length) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.text("Especificaciones", margins.left, y);
       y += 4;
-      const specColW = contentWidthTop / 3;
       y = drawRoundedTable(doc, {
         x: margins.left,
         y,
-        colWidths: [specColW, specColW, specColW],
+        colWidths: [30, 40, 32, 20, 20, 40],
         cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
         margins,
         rows: [
-          ["Tipo de tela", "Tallas", "Tipo de cuello"],
-          ...specRows.map((s) => [s.tela || "-", s.tallas || "-", s.cuello || "-"]),
+          ["Producto", "Tela", "Tallas", "Cuello", "Corte", "Color"],
+          ...specRows.map((s) => [
+            s.producto || "-",
+            s.tela || "-",
+            s.tallas || "-",
+            s.cuello || "-",
+            s.corte || "-",
+            s.color || "-",
+          ]),
         ],
       });
       y += 10;
@@ -896,7 +1005,23 @@
         rightY = renderImageGrid(doc, item.images, rightColX, rightY, rightColW, imagesPerRow, margins);
       }
 
-      y = Math.max(leftY, rightY) + 3;
+      y = Math.max(leftY, rightY);
+
+      if (item.table && Array.isArray(item.table.titles) && item.table.titles.length) {
+        y += 4;
+        const n = item.table.titles.length;
+        const colW = contentWidth / n;
+        y = drawRoundedTable(doc, {
+          x: margins.left,
+          y,
+          colWidths: Array(n).fill(colW),
+          cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
+          margins,
+          rows: [item.table.titles.map((t) => t || "-"), item.table.values.map((v) => v || "-")],
+        });
+      }
+
+      y += 3;
     });
 
     if (data.annexes.length) {

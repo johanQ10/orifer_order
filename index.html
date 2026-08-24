@@ -65,9 +65,12 @@
       <table id="spec-table">
         <thead>
           <tr>
-            <th>Tipo de tela</th>
+            <th>Producto</th>
+            <th>Tela</th>
             <th>Tallas</th>
-            <th>Tipo de cuello</th>
+            <th>Cuello</th>
+            <th>Corte</th>
+            <th>Color</th>
             <th class="col-action"></th>
           </tr>
         </thead>
@@ -105,9 +108,12 @@
 <!-- plantilla de fila de especificación (oculta, clonada por JS) -->
 <template id="tpl-spec-row">
   <tr class="spec-row">
+    <td><select class="spec-producto"></select></td>
     <td><input type="text" class="spec-tela" placeholder="Ej: Algodón 100%"></td>
     <td><input type="text" class="spec-tallas" placeholder="Ej: S, M, L, XL"></td>
-    <td><input type="text" class="spec-cuello" placeholder="Ej: Redondo"></td>
+    <td><select class="spec-cuello"></select></td>
+    <td><select class="spec-corte"></select></td>
+    <td><input type="text" class="spec-color" placeholder="Ej: Azul"></td>
     <td class="col-action"><button class="btn-icon btn-remove-row" title="Eliminar fila">✕</button></td>
   </tr>
 </template>
@@ -133,9 +139,38 @@
         + Agregar imagen
         <input type="file" class="item-image-input" accept="image/*" multiple hidden>
       </label>
+      <button type="button" class="btn btn-small btn-warning btn-add-table">+ Agregar tabla</button>
     </div>
     <div class="gallery item-gallery"></div>
   </div>
+</template>
+
+<template id="tpl-item-table">
+  <div class="item-table-wrap" hidden>
+    <div class="item-table-toolbar">
+      <button type="button" class="btn-icon btn-remove-item-table" title="Eliminar tabla">✕</button>
+      <button type="button" class="btn-icon btn-add-table-col" title="Agregar columna">+</button>
+    </div>
+    <div class="item-table-scroll">
+      <table class="item-table">
+        <thead><tr class="item-table-headers"></tr></thead>
+        <tbody><tr class="item-table-row"></tr></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-item-table-col">
+  <th>
+    <div class="item-table-col-head">
+      <input type="text" class="item-table-col-title" placeholder="Título">
+      <button type="button" class="btn-icon btn-remove-table-col" title="Eliminar columna">✕</button>
+    </div>
+  </th>
+</template>
+
+<template id="tpl-item-table-cell">
+  <td><textarea class="item-table-cell" rows="1"></textarea></td>
 </template>
 
 <template id="tpl-task">
