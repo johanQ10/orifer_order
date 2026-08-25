@@ -116,6 +116,111 @@
 
   $("#btn-add-spec-row").addEventListener("click", () => addSpecRow());
 
+  // ---------- Specs: "Automática" <-> "Manual" (fully custom) table ----------
+
+  const specsAutoWrap = $("#specs-auto-wrap");
+  const specsManualWrap = $("#specs-manual-wrap");
+  const specsModeToggle = $("#specs-mode-toggle");
+  const specsModeLabel = $("#specs-mode-label");
+  const btnAddSpecRow = $("#btn-add-spec-row");
+  const btnAddManualRow = $("#btn-add-manual-row");
+  const btnAddManualCol = $("#btn-add-manual-col");
+  const specsManualHeaderRow = $("#specs-manual-header-row");
+  const specsManualBody = $("#specs-manual-body");
+
+  function setSpecsMode(isManual) {
+    specsModeToggle.setAttribute("aria-checked", isManual ? "true" : "false");
+    specsModeLabel.textContent = isManual ? "Manual" : "Automática";
+    specsAutoWrap.hidden = isManual;
+    specsManualWrap.hidden = !isManual;
+    btnAddSpecRow.hidden = isManual;
+    btnAddManualRow.hidden = !isManual;
+    btnAddManualCol.hidden = !isManual;
+  }
+
+  specsModeToggle.addEventListener("click", () => {
+    setSpecsMode(specsModeToggle.getAttribute("aria-checked") !== "true");
+  });
+
+  function updateManualRemoveButtons() {
+    const cols = $$(".specs-manual-col-title", specsManualHeaderRow);
+    $$(".btn-remove-manual-col", specsManualHeaderRow).forEach((btn) => {
+      btn.hidden = cols.length <= 1;
+    });
+    const rows = $$("tr", specsManualBody);
+    $$(".btn-remove-manual-row", specsManualBody).forEach((btn) => {
+      btn.hidden = rows.length <= 1;
+    });
+  }
+
+  function addManualColumn(title) {
+    const th = cloneTpl("tpl-specs-manual-col");
+    $(".specs-manual-col-title", th).value = title || "";
+    $(".btn-remove-manual-col", th).addEventListener("click", () => {
+      const idx = Array.from(specsManualHeaderRow.children).indexOf(th);
+      th.remove();
+      $$("tr", specsManualBody).forEach((tr) => {
+        const cell = tr.children[idx];
+        if (cell) cell.remove();
+      });
+      updateManualRemoveButtons();
+    });
+    specsManualHeaderRow.appendChild(th);
+
+    $$("tr", specsManualBody).forEach((tr) => {
+      const td = cloneTpl("tpl-specs-manual-cell");
+      const textarea = $(".specs-manual-cell", td);
+      textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+      tr.appendChild(td);
+    });
+    updateManualRemoveButtons();
+  }
+
+  function addManualRow(title, cellValues) {
+    const tr = cloneTpl("tpl-specs-manual-row");
+    $(".specs-manual-row-title", tr).value = title || "";
+    $(".btn-remove-manual-row", tr).addEventListener("click", () => {
+      tr.remove();
+      updateManualRemoveButtons();
+    });
+
+    const colCount = $$(".specs-manual-col-title", specsManualHeaderRow).length;
+    for (let i = 0; i < colCount; i++) {
+      const td = cloneTpl("tpl-specs-manual-cell");
+      const textarea = $(".specs-manual-cell", td);
+      textarea.value = (cellValues && cellValues[i]) || "";
+      textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+      tr.appendChild(td);
+    }
+    specsManualBody.appendChild(tr);
+    updateManualRemoveButtons();
+  }
+
+  btnAddManualCol.addEventListener("click", () => addManualColumn());
+  btnAddManualRow.addEventListener("click", () => addManualRow());
+
+  function resetManualSpecsTable(defaultData) {
+    specsManualHeaderRow.innerHTML = '<th class="specs-manual-corner"></th>';
+    specsManualBody.innerHTML = "";
+    if (defaultData && Array.isArray(defaultData.columnTitles) && defaultData.columnTitles.length) {
+      defaultData.columnTitles.forEach((t) => addManualColumn(t));
+      (defaultData.rows || []).forEach((r) => addManualRow(r.title, r.cells));
+    } else {
+      for (let i = 0; i < 3; i++) addManualColumn();
+      for (let i = 0; i < 3; i++) addManualRow();
+    }
+  }
+
+  function collectManualSpecs() {
+    return {
+      columnTitles: $$(".specs-manual-col-title", specsManualHeaderRow).map((i) => i.value.trim()),
+      rows: $$("tr", specsManualBody).map((tr) => ({
+        title: $(".specs-manual-row-title", tr).value.trim(),
+        cells: $$(".specs-manual-cell", tr).map((c) => c.value),
+      })),
+    };
+  }
+
   // ---------- Items ----------
 
   const itemsContainer = $("#items-container");
@@ -364,7 +469,9 @@
         fechaEntrega: $("#fecha-entrega").value,
         numeroOrden: $("#numero-orden").value.trim(),
       },
+      specsMode: specsModeToggle.getAttribute("aria-checked") === "true" ? "manual" : "auto",
       specs,
+      specsManual: collectManualSpecs(),
       items,
       annexes,
     };
@@ -383,6 +490,8 @@
     } else {
       addSpecRow();
     }
+    resetManualSpecsTable(data.specsManual);
+    setSpecsMode(data.specsMode === "manual");
 
     itemsContainer.innerHTML = "";
     if (Array.isArray(data.items) && data.items.length) {
@@ -407,11 +516,15 @@
     $("#fecha-entrega").value = "";
     $("#numero-orden").value = "";
     addSpecRow();
+    resetManualSpecsTable();
+    setSpecsMode(false);
     showToast("Formulario reiniciado");
   });
 
   function loadInitialState() {
     addSpecRow();
+    resetManualSpecsTable();
+    setSpecsMode(false);
   }
 
   // ---------- IndexedDB (remembers the "orders" folder handle) ----------
@@ -981,39 +1094,69 @@
     });
     y += 10;
 
-    const specRows = data.specs.filter(
-      (s) =>
-        s.tela ||
-        s.tallas ||
-        s.color ||
-        (s.producto && s.producto !== "-") ||
-        (s.cuello && s.cuello !== "-") ||
-        (s.corte && s.corte !== "-")
-    );
-    if (specRows.length) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Especificaciones", margins.left, y);
-      y += 4;
-      y = drawRoundedTable(doc, {
-        x: margins.left,
-        y,
-        colWidths: [30, 40, 40, 32, 20, 20],
-        cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
-        margins,
-        rows: [
-          ["Producto", "Tela", "Color", "Tallas", "Corte", "Cuello"],
-          ...specRows.map((s) => [
-            s.producto || "-",
-            s.tela || "-",
-            s.color || "-",
-            s.tallas || "-",
-            s.corte || "-",
-            s.cuello || "-",
-          ]),
-        ],
-      });
-      y += 10;
+    if (data.specsMode === "manual") {
+      const manual = data.specsManual;
+      const hasManualContent =
+        manual &&
+        ((manual.columnTitles || []).some(Boolean) ||
+          (manual.rows || []).some((r) => r.title || (r.cells || []).some(Boolean)));
+      if (hasManualContent) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Especificaciones", margins.left, y);
+        y += 4;
+        const n = manual.columnTitles.length;
+        const rowTitleColW = 35;
+        const dataColW = (contentWidthTop - rowTitleColW) / n;
+        y = drawRoundedTable(doc, {
+          x: margins.left,
+          y,
+          colWidths: [rowTitleColW, ...Array(n).fill(dataColW)],
+          cellStyle: (ri, ci) =>
+            ri === 0 || ci === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {},
+          margins,
+          rows: [
+            ["", ...manual.columnTitles.map((t) => t || "-")],
+            ...manual.rows.map((r) => [r.title || "-", ...r.cells.map((c) => c || "-")]),
+          ],
+        });
+        y += 10;
+      }
+    } else {
+      const specRows = data.specs.filter(
+        (s) =>
+          s.tela ||
+          s.tallas ||
+          s.color ||
+          (s.producto && s.producto !== "-") ||
+          (s.cuello && s.cuello !== "-") ||
+          (s.corte && s.corte !== "-")
+      );
+      if (specRows.length) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Especificaciones", margins.left, y);
+        y += 4;
+        y = drawRoundedTable(doc, {
+          x: margins.left,
+          y,
+          colWidths: [30, 40, 40, 32, 20, 20],
+          cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
+          margins,
+          rows: [
+            ["Producto", "Tela", "Color", "Tallas", "Corte", "Cuello"],
+            ...specRows.map((s) => [
+              s.producto || "-",
+              s.tela || "-",
+              s.color || "-",
+              s.tallas || "-",
+              s.corte || "-",
+              s.cuello || "-",
+            ]),
+          ],
+        });
+        y += 10;
+      }
     }
 
     data.items.forEach((item, idx) => {

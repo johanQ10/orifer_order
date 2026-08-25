@@ -91,6 +91,13 @@ main {
 }
 .card-header-row h2 { margin: 0; }
 
+.specs-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .hint {
   color: var(--text-muted);
   font-size: 0.85rem;
@@ -293,16 +300,21 @@ input[type="text"]:focus, input[type="date"]:focus, select:focus {
 .item-table-col-title:focus { outline: 1px solid var(--accent); border-radius: 4px; box-shadow: none; }
 .item-table-cell {
   width: 100%;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   resize: none;
   overflow: hidden;
   font-family: inherit;
   font-size: 0.9rem;
-  padding: 4px;
+  padding: 8px 10px;
   min-height: 34px;
-  background: transparent;
+  background: #fff;
 }
-.item-table-cell:focus { outline: 1px solid var(--accent); border-radius: 4px; box-shadow: none; }
+.item-table-cell:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,167,219,0.16);
+}
 
 .btn-icon {
   border: none;
@@ -353,6 +365,59 @@ td select.spec-corte:focus {
   box-shadow: 0 0 0 3px rgba(0,167,219,0.16);
 }
 .col-action { width: 40px; text-align: center; }
+
+.specs-manual-col-head { display: flex; align-items: center; gap: 4px; }
+.specs-manual-col-title {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+}
+.specs-manual-col-title::placeholder { color: rgba(255,255,255,0.75); }
+.specs-manual-col-title:focus { outline: 1px solid rgba(255,255,255,0.8); border-radius: 4px; box-shadow: none; }
+.btn-remove-manual-col { color: rgba(255,255,255,0.85); }
+.btn-remove-manual-col:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+.specs-manual-row-title-cell {
+  background: var(--secondary-bg);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 140px;
+}
+.specs-manual-row-title {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+}
+.specs-manual-row-title:focus { outline: 1px solid var(--accent); border-radius: 4px; box-shadow: none; }
+
+.specs-manual-cell {
+  width: 100%;
+  min-width: 160px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  min-height: 34px;
+  background: #fff;
+}
+.specs-manual-cell:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,167,219,0.16);
+}
 
 .item-card {
   border: 1px solid var(--border);

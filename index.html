@@ -58,10 +58,21 @@
   <!-- ESPECIFICACIONES -->
   <section class="card">
     <div class="card-header-row">
-      <h2>Especificaciones (tela / tallas / cuello)</h2>
-      <button id="btn-add-spec-row" class="btn btn-small">+ Agregar fila</button>
+      <h2>Especificaciones</h2>
+      <div class="specs-header-actions">
+        <div class="switch-wrap">
+          <span class="switch-text" id="specs-mode-label">Automática</span>
+          <button type="button" id="specs-mode-toggle" class="switch" role="switch" aria-checked="false" title="Cambiar entre tabla automática y tabla personalizable">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </button>
+        </div>
+        <button id="btn-add-spec-row" class="btn btn-small">+ Agregar fila</button>
+        <button id="btn-add-manual-row" class="btn btn-small" hidden>+ Agregar fila</button>
+        <button id="btn-add-manual-col" class="btn btn-small" hidden>+ Agregar columna</button>
+      </div>
     </div>
-    <div class="table-wrap">
+
+    <div id="specs-auto-wrap" class="table-wrap">
       <table id="spec-table">
         <thead>
           <tr>
@@ -75,6 +86,19 @@
           </tr>
         </thead>
         <tbody id="spec-table-body">
+          <!-- filas dinámicas -->
+        </tbody>
+      </table>
+    </div>
+
+    <div id="specs-manual-wrap" class="table-wrap" hidden>
+      <table id="specs-manual-table">
+        <thead>
+          <tr id="specs-manual-header-row">
+            <th class="specs-manual-corner"></th>
+          </tr>
+        </thead>
+        <tbody id="specs-manual-body">
           <!-- filas dinámicas -->
         </tbody>
       </table>
@@ -115,6 +139,28 @@
     <td><select class="spec-corte"></select></td>
     <td><select class="spec-cuello"></select></td>
     <td class="col-action"><button class="btn-icon btn-remove-row" title="Eliminar fila">✕</button></td>
+  </tr>
+</template>
+
+<template id="tpl-specs-manual-col">
+  <th>
+    <div class="specs-manual-col-head">
+      <input type="text" class="specs-manual-col-title" placeholder="Título columna">
+      <button type="button" class="btn-icon btn-remove-manual-col" title="Eliminar columna">✕</button>
+    </div>
+  </th>
+</template>
+
+<template id="tpl-specs-manual-cell">
+  <td><textarea class="specs-manual-cell" rows="1"></textarea></td>
+</template>
+
+<template id="tpl-specs-manual-row">
+  <tr>
+    <td class="specs-manual-row-title-cell">
+      <input type="text" class="specs-manual-row-title" placeholder="Título fila">
+      <button type="button" class="btn-icon btn-remove-manual-row" title="Eliminar fila">✕</button>
+    </td>
   </tr>
 </template>
 
