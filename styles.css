@@ -374,6 +374,29 @@ td select.spec-corte:focus {
   font-size: 1rem;
 }
 
+.item-responsibles-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.item-responsible-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.item-responsible-slot select {
+  width: auto;
+  min-width: 150px;
+}
+.btn-add-responsible {
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+}
+.btn-add-responsible:hover { background: var(--secondary-bg); color: var(--accent-dark); border-color: var(--accent); }
+.btn-add-responsible:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-add-responsible:disabled:hover { background: transparent; color: var(--text-muted); border-color: var(--border); }
+
 .task-list {
   list-style: none;
   margin: 0 0 8px;

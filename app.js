@@ -90,7 +90,7 @@
 
   const specTableBody = $("#spec-table-body");
 
-  const PRODUCTO_OPTIONS = ["-", "Body", "Chaqueta", "Crop-Top", "Franela", "Franelilla", "Sueter"];
+  const PRODUCTO_OPTIONS = ["-", "Body", "Chaqueta", "Crop-Top", "Franela", "Franelilla", "Sudadera", "Sueter"];
   const CUELLO_OPTIONS = ["-", "V", "R"];
   const CORTE_OPTIONS = ["-", "D", "C"];
 
@@ -137,6 +137,29 @@
     select.innerHTML =
       '<option value="">Selecciona un responsable</option>' +
       sortAlphaDashFirst(RESPONSABLES).map((name) => `<option value="${name}">${name}</option>`).join("");
+  }
+
+  const MAX_RESPONSABLES = 4;
+
+  function updateResponsibleSlotsUI(row, addBtn) {
+    const slots = $$(".item-responsible-slot", row);
+    slots.forEach((slot) => {
+      $(".btn-remove-responsible", slot).hidden = slots.length <= 1;
+    });
+    addBtn.disabled = slots.length >= MAX_RESPONSABLES;
+  }
+
+  function addResponsibleSlot(row, addBtn, value) {
+    const slot = cloneTpl("tpl-item-responsible");
+    const select = $(".item-responsible", slot);
+    populateResponsableSelect(select);
+    select.value = value || "";
+    $(".btn-remove-responsible", slot).addEventListener("click", () => {
+      slot.remove();
+      updateResponsibleSlotsUI(row, addBtn);
+    });
+    row.insertBefore(slot, addBtn);
+    updateResponsibleSlotsUI(row, addBtn);
   }
 
   function addTaskRow(taskListEl, text) {
@@ -203,7 +226,8 @@
   function addItem(data) {
     const item = cloneTpl("tpl-item");
     const titleInput = $(".item-title", item);
-    const responsibleSelect = $(".item-responsible", item);
+    const responsiblesRow = $(".item-responsibles-row", item);
+    const addResponsibleBtn = $(".btn-add-responsible", item);
     const taskList = $(".task-list", item);
     const addTaskBtn = $(".btn-add-task", item);
     const removeItemBtn = $(".btn-remove-item", item);
@@ -211,8 +235,15 @@
     const gallery = $(".item-gallery", item);
 
     titleInput.value = (data && data.title) || "";
-    populateResponsableSelect(responsibleSelect);
-    responsibleSelect.value = (data && data.responsible) || "";
+
+    addResponsibleBtn.addEventListener("click", () => addResponsibleSlot(responsiblesRow, addResponsibleBtn));
+    const initialResponsables =
+      data && Array.isArray(data.responsibles) && data.responsibles.length
+        ? data.responsibles
+        : [(data && data.responsible) || ""];
+    initialResponsables
+      .slice(0, MAX_RESPONSABLES)
+      .forEach((v) => addResponsibleSlot(responsiblesRow, addResponsibleBtn, v));
 
     addTaskBtn.addEventListener("click", () => addTaskRow(taskList));
     removeItemBtn.addEventListener("click", () => {
@@ -308,7 +339,9 @@
       const hasTable = tableWrap && !tableWrap.hidden && colTitles.length > 0;
       return {
         title: $(".item-title", itemEl).value.trim(),
-        responsible: $(".item-responsible", itemEl).value.trim(),
+        responsibles: $$(".item-responsible", itemEl)
+          .map((s) => s.value.trim())
+          .filter(Boolean),
         tasks: $$(".task-text", itemEl)
           .map((i) => i.value.trim())
           .filter(Boolean),
@@ -773,6 +806,24 @@
 
   // Renders the task list as a bordered box with a divider line between
   // rows, so tasks read as a table instead of a loose stack of lines.
+  function measureTasksTableHeight(doc, tasks, width) {
+    if (!tasks.length) return 0;
+    const padX = 4;
+    const padTop = 4;
+    const padBottom = 4;
+    const rowPadding = 4;
+    const checkboxSize = 3.2;
+    const textWidth = width - padX - checkboxSize - 6;
+    const lineHeight = 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const rowHeights = tasks.map((task) => {
+      const lines = doc.splitTextToSize(task, textWidth);
+      return lines.length * lineHeight + rowPadding;
+    });
+    return padTop + rowHeights.reduce((a, b) => a + b, 0) + padBottom;
+  }
+
   function drawTasksTable(doc, tasks, x, y, width, margins) {
     if (!tasks.length) return y;
     const padX = 4;
@@ -947,18 +998,18 @@
       y = drawRoundedTable(doc, {
         x: margins.left,
         y,
-        colWidths: [30, 40, 32, 20, 20, 40],
+        colWidths: [30, 40, 40, 32, 20, 20],
         cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
         margins,
         rows: [
-          ["Producto", "Tela", "Tallas", "Cuello", "Corte", "Color"],
+          ["Producto", "Tela", "Color", "Tallas", "Corte", "Cuello"],
           ...specRows.map((s) => [
             s.producto || "-",
             s.tela || "-",
-            s.tallas || "-",
-            s.cuello || "-",
-            s.corte || "-",
             s.color || "-",
+            s.tallas || "-",
+            s.corte || "-",
+            s.cuello || "-",
           ]),
         ],
       });
@@ -966,17 +1017,6 @@
     }
 
     data.items.forEach((item, idx) => {
-      y = ensureSpace(doc, y, 14, margins);
-
-      doc.setFillColor(...PDF_PRIMARY);
-      doc.roundedRect(margins.left, y, pageWidth - margins.left - margins.right, 8, PDF_RADIUS, PDF_RADIUS, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(`${item.title || "(sin título)"}: ${item.responsible || "-"}`, margins.left + 2, y + 5.5);
-      doc.setTextColor(0, 0, 0);
-      y += 15;
-
       const contentWidth = pageWidth - margins.left - margins.right;
       const colGap = 6;
       const splitLayout = item.tasks.length > 0 && item.images.length > 0;
@@ -985,27 +1025,49 @@
       const rightColW = splitLayout ? contentWidth - leftColW - colGap : contentWidth;
       const imagesPerRow = splitLayout ? 2 : 3;
 
+      // Check room for the title bar AND the tasks box together, so a long
+      // task list moves to a fresh page as a whole instead of leaving the
+      // title bar and "Tareas:" label orphaned at the bottom of this one.
+      let neededForHeader = 15 + 2; // title bar + a small safety buffer
+      if (item.tasks.length) neededForHeader += 5 + measureTasksTableHeight(doc, item.tasks, leftColW);
+      y = ensureSpace(doc, y, neededForHeader, margins);
+
+      doc.setFillColor(...PDF_PRIMARY);
+      doc.roundedRect(margins.left, y, pageWidth - margins.left - margins.right, 8, PDF_RADIUS, PDF_RADIUS, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      const responsablesText = (item.responsibles || []).filter(Boolean).join(" / ") || "-";
+      doc.text(`${item.title || "(sin título)"}: ${responsablesText}`, margins.left + 2, y + 5.5);
+      doc.setTextColor(0, 0, 0);
+      y += 15;
+
       const blockStartY = y;
-      let leftY = y;
+      let leftY = null;
+      let rightY = null;
 
       if (item.tasks.length) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
-        doc.text("Tareas:", margins.left, leftY);
-        leftY += 5;
-        leftY = drawTasksTable(doc, item.tasks, margins.left, leftY, leftColW, margins);
+        doc.text("Tareas:", margins.left, blockStartY);
+        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY + 5, leftColW, margins);
       }
 
-      let rightY = blockStartY;
       if (item.images.length) {
         doc.setFont("helvetica", "bold");
-        doc.text("Imágenes:", rightColX, rightY);
-        rightY += 6;
+        doc.text("Imágenes:", rightColX, blockStartY);
         doc.setFont("helvetica", "normal");
-        rightY = renderImageGrid(doc, item.images, rightColX, rightY, rightColW, imagesPerRow, margins);
+        rightY = renderImageGrid(doc, item.images, rightColX, blockStartY + 6, rightColW, imagesPerRow, margins);
       }
 
-      y = Math.max(leftY, rightY);
+      // Either column may have overflowed onto a new page on its own (e.g. a
+      // long task list) while the other stayed empty — falling back to
+      // blockStartY (a coordinate from the page before the overflow) for the
+      // empty side would wrongly drag y back up, leaving a huge blank gap
+      // before the next item. Only columns that actually drew something
+      // should count toward where the next item starts.
+      const drawnYs = [leftY, rightY].filter((v) => v !== null);
+      y = drawnYs.length ? Math.max(...drawnYs) : blockStartY;
 
       if (item.table && Array.isArray(item.table.titles) && item.table.titles.length) {
         y += 4;

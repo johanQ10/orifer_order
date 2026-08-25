@@ -67,10 +67,10 @@
           <tr>
             <th>Producto</th>
             <th>Tela</th>
-            <th>Tallas</th>
-            <th>Cuello</th>
-            <th>Corte</th>
             <th>Color</th>
+            <th>Tallas</th>
+            <th>Corte</th>
+            <th>Cuello</th>
             <th class="col-action"></th>
           </tr>
         </thead>
@@ -110,10 +110,10 @@
   <tr class="spec-row">
     <td><select class="spec-producto"></select></td>
     <td><input type="text" class="spec-tela" placeholder="Ej: Algodón 100%"></td>
-    <td><input type="text" class="spec-tallas" placeholder="Ej: S, M, L, XL"></td>
-    <td><select class="spec-cuello"></select></td>
-    <td><select class="spec-corte"></select></td>
     <td><input type="text" class="spec-color" placeholder="Ej: Azul"></td>
+    <td><input type="text" class="spec-tallas" placeholder="Ej: S, M, L, XL"></td>
+    <td><select class="spec-corte"></select></td>
+    <td><select class="spec-cuello"></select></td>
     <td class="col-action"><button class="btn-icon btn-remove-row" title="Eliminar fila">✕</button></td>
   </tr>
 </template>
@@ -127,7 +127,9 @@
     </div>
     <div class="field">
       <label>Responsable</label>
-      <select class="item-responsible"></select>
+      <div class="item-responsibles-row">
+        <button type="button" class="btn-icon btn-add-responsible" title="Agregar otro responsable (máx. 4)">+</button>
+      </div>
     </div>
     <div class="field">
       <label>Tareas</label>
@@ -142,6 +144,13 @@
       <button type="button" class="btn btn-small btn-warning btn-add-table">+ Agregar tabla</button>
     </div>
     <div class="gallery item-gallery"></div>
+  </div>
+</template>
+
+<template id="tpl-item-responsible">
+  <div class="item-responsible-slot">
+    <select class="item-responsible"></select>
+    <button type="button" class="btn-icon btn-remove-responsible" title="Quitar responsable">✕</button>
   </div>
 </template>
 
