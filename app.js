@@ -158,7 +158,6 @@
     const colTitle = $(".specs-manual-col-title", th);
     colTitle.value = title || "";
     colTitle.addEventListener("input", () => autoResizeTextarea(colTitle));
-    autoResizeTextarea(colTitle);
     $(".btn-remove-manual-col", th).addEventListener("click", () => {
       const idx = Array.from(specsManualHeaderRow.children).indexOf(th);
       th.remove();
@@ -169,12 +168,14 @@
       updateManualRemoveButtons();
     });
     specsManualHeaderRow.appendChild(th);
+    autoResizeTextarea(colTitle); // must run after attaching: scrollHeight is unreliable on detached nodes
 
     $$("tr", specsManualBody).forEach((tr) => {
       const td = cloneTpl("tpl-specs-manual-cell");
       const textarea = $(".specs-manual-cell", td);
       textarea.addEventListener("input", () => autoResizeTextarea(textarea));
       tr.appendChild(td);
+      autoResizeTextarea(textarea);
     });
     updateManualRemoveButtons();
   }
@@ -184,21 +185,24 @@
     const rowTitle = $(".specs-manual-row-title", tr);
     rowTitle.value = title || "";
     rowTitle.addEventListener("input", () => autoResizeTextarea(rowTitle));
-    autoResizeTextarea(rowTitle);
     $(".btn-remove-manual-row", tr).addEventListener("click", () => {
       tr.remove();
       updateManualRemoveButtons();
     });
 
     const colCount = $$(".specs-manual-col-title", specsManualHeaderRow).length;
+    const cellTextareas = [];
     for (let i = 0; i < colCount; i++) {
       const td = cloneTpl("tpl-specs-manual-cell");
       const textarea = $(".specs-manual-cell", td);
       textarea.value = (cellValues && cellValues[i]) || "";
       textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+      cellTextareas.push(textarea);
       tr.appendChild(td);
     }
     specsManualBody.appendChild(tr);
+    autoResizeTextarea(rowTitle); // must run after attaching: scrollHeight is unreliable on detached nodes
+    cellTextareas.forEach(autoResizeTextarea);
     updateManualRemoveButtons();
   }
 
@@ -921,10 +925,12 @@
         doc.setFontSize(fontSize);
         doc.setTextColor(...(style.textColor || [31, 36, 48]));
         const lines = doc.splitTextToSize(String(text ?? ""), colWidths[ci] - cellPadding * 2);
+        const blockTop = ry + (rowHeights[ri] - lines.length * lineHeight) / 2;
+        const textY = blockTop + lineHeight * 0.72;
         if (align === "center") {
-          doc.text(lines, rx + colWidths[ci] / 2, ry + cellPadding + lineHeight * 0.72, { align: "center" });
+          doc.text(lines, rx + colWidths[ci] / 2, textY, { align: "center" });
         } else {
-          doc.text(lines, rx + cellPadding, ry + cellPadding + lineHeight * 0.72);
+          doc.text(lines, rx + cellPadding, textY);
         }
         rx += colWidths[ci];
       });
@@ -940,8 +946,8 @@
   function measureTasksTableHeight(doc, tasks, width) {
     if (!tasks.length) return 0;
     const padX = 4;
-    const padTop = 4;
-    const padBottom = 4;
+    const padTop = 2;
+    const padBottom = 2;
     const rowPadding = 4;
     const checkboxSize = 3.2;
     const textWidth = width - padX - checkboxSize - 6;
@@ -958,8 +964,8 @@
   function drawTasksTable(doc, tasks, x, y, width, margins) {
     if (!tasks.length) return y;
     const padX = 4;
-    const padTop = 4;
-    const padBottom = 4;
+    const padTop = 2;
+    const padBottom = 2;
     const rowPadding = 4;
     const checkboxSize = 3.2;
     const textX = x + padX + checkboxSize + 3;
@@ -1191,8 +1197,8 @@
       // Check room for the title bar AND the tasks box together, so a long
       // task list moves to a fresh page as a whole instead of leaving the
       // title bar orphaned at the bottom of this one.
-      let neededForHeader = 15 + 2; // title bar + a small safety buffer
-      if (item.tasks.length) neededForHeader += 3 + measureTasksTableHeight(doc, item.tasks, leftColW);
+      let neededForHeader = 11 + 2; // title bar + gap + a small safety buffer
+      if (item.tasks.length) neededForHeader += measureTasksTableHeight(doc, item.tasks, leftColW);
       y = ensureSpace(doc, y, neededForHeader, margins);
 
       doc.setFillColor(...PDF_SKY);
@@ -1202,14 +1208,14 @@
       doc.setFontSize(11);
       const responsablesText = (item.responsibles || []).filter(Boolean).join(" / ") || "-";
       doc.text(`${item.title || "(sin título)"}: ${responsablesText}`, margins.left + 2, y + 5.5);
-      y += 15;
+      y += 11;
 
       const blockStartY = y;
       let leftY = null;
       let rightY = null;
 
       if (item.tasks.length) {
-        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY + 3, leftColW, margins);
+        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY, leftColW, margins);
       }
 
       if (item.images.length) {
