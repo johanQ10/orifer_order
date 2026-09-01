@@ -155,7 +155,10 @@
 
   function addManualColumn(title) {
     const th = cloneTpl("tpl-specs-manual-col");
-    $(".specs-manual-col-title", th).value = title || "";
+    const colTitle = $(".specs-manual-col-title", th);
+    colTitle.value = title || "";
+    colTitle.addEventListener("input", () => autoResizeTextarea(colTitle));
+    autoResizeTextarea(colTitle);
     $(".btn-remove-manual-col", th).addEventListener("click", () => {
       const idx = Array.from(specsManualHeaderRow.children).indexOf(th);
       th.remove();
@@ -178,7 +181,10 @@
 
   function addManualRow(title, cellValues) {
     const tr = cloneTpl("tpl-specs-manual-row");
-    $(".specs-manual-row-title", tr).value = title || "";
+    const rowTitle = $(".specs-manual-row-title", tr);
+    rowTitle.value = title || "";
+    rowTitle.addEventListener("input", () => autoResizeTextarea(rowTitle));
+    autoResizeTextarea(rowTitle);
     $(".btn-remove-manual-row", tr).addEventListener("click", () => {
       tr.remove();
       updateManualRemoveButtons();
@@ -200,7 +206,13 @@
   btnAddManualRow.addEventListener("click", () => addManualRow());
 
   function resetManualSpecsTable(defaultData) {
-    specsManualHeaderRow.innerHTML = '<th class="specs-manual-corner"></th>';
+    specsManualHeaderRow.innerHTML =
+      '<th class="specs-manual-corner"><textarea class="specs-manual-corner-cell" rows="1"></textarea></th>';
+    const cornerCell = $(".specs-manual-corner-cell", specsManualHeaderRow);
+    cornerCell.value = (defaultData && defaultData.corner) || "";
+    cornerCell.addEventListener("input", () => autoResizeTextarea(cornerCell));
+    autoResizeTextarea(cornerCell);
+
     specsManualBody.innerHTML = "";
     if (defaultData && Array.isArray(defaultData.columnTitles) && defaultData.columnTitles.length) {
       defaultData.columnTitles.forEach((t) => addManualColumn(t));
@@ -213,6 +225,7 @@
 
   function collectManualSpecs() {
     return {
+      corner: $(".specs-manual-corner-cell", specsManualHeaderRow).value.trim(),
       columnTitles: $$(".specs-manual-col-title", specsManualHeaderRow).map((i) => i.value.trim()),
       rows: $$("tr", specsManualBody).map((tr) => ({
         title: $(".specs-manual-row-title", tr).value.trim(),
@@ -824,6 +837,7 @@
   // ---------- PDF generation ----------
 
   const PDF_PRIMARY = [20, 107, 184]; // brand navy (logo)
+  const PDF_SKY = [135, 206, 235]; // sky blue used for item titles and the specs table header
   const PDF_ACCENT = [0, 167, 219]; // brand cyan (logo)
   const PDF_BORDER = [150, 156, 163]; // darkened so borders survive printing
   const PDF_RADIUS = 2; // corner radius (mm) for boxes/tables in the PDF
@@ -841,7 +855,7 @@
   // only draws square cells, and overlaying a rounded stroke on top of it
   // leaves the square corners peeking out past the curve, so cell fills here
   // are painted inside a clip region shaped like the rounded rect instead.
-  function drawRoundedTable(doc, { x, y, colWidths, rows, cellStyle, margins, fontSize = 10 }) {
+  function drawRoundedTable(doc, { x, y, colWidths, rows, cellStyle, margins, fontSize = 10, align = "left" }) {
     const cellPadding = 3;
     const lineHeight = 4.2;
     const width = colWidths.reduce((a, b) => a + b, 0);
@@ -907,7 +921,11 @@
         doc.setFontSize(fontSize);
         doc.setTextColor(...(style.textColor || [31, 36, 48]));
         const lines = doc.splitTextToSize(String(text ?? ""), colWidths[ci] - cellPadding * 2);
-        doc.text(lines, rx + cellPadding, ry + cellPadding + lineHeight * 0.72);
+        if (align === "center") {
+          doc.text(lines, rx + colWidths[ci] / 2, ry + cellPadding + lineHeight * 0.72, { align: "center" });
+        } else {
+          doc.text(lines, rx + cellPadding, ry + cellPadding + lineHeight * 0.72);
+        }
         rx += colWidths[ci];
       });
       ry += rowHeights[ri];
@@ -1098,7 +1116,8 @@
       const manual = data.specsManual;
       const hasManualContent =
         manual &&
-        ((manual.columnTitles || []).some(Boolean) ||
+        (manual.corner ||
+          (manual.columnTitles || []).some(Boolean) ||
           (manual.rows || []).some((r) => r.title || (r.cells || []).some(Boolean)));
       if (hasManualContent) {
         doc.setFont("helvetica", "bold");
@@ -1113,10 +1132,11 @@
           y,
           colWidths: [rowTitleColW, ...Array(n).fill(dataColW)],
           cellStyle: (ri, ci) =>
-            ri === 0 || ci === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {},
+            ri === 0 || ci === 0 ? { bold: true, fill: PDF_SKY, textColor: [0, 0, 0] } : {},
           margins,
+          align: "center",
           rows: [
-            ["", ...manual.columnTitles.map((t) => t || "-")],
+            [manual.corner || "-", ...manual.columnTitles.map((t) => t || "-")],
             ...manual.rows.map((r) => [r.title || "-", ...r.cells.map((c) => c || "-")]),
           ],
         });
@@ -1141,7 +1161,7 @@
           x: margins.left,
           y,
           colWidths: [30, 40, 40, 32, 20, 20],
-          cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
+          cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_SKY, textColor: [0, 0, 0] } : {}),
           margins,
           rows: [
             ["Producto", "Tela", "Color", "Tallas", "Corte", "Cuello"],
@@ -1170,19 +1190,18 @@
 
       // Check room for the title bar AND the tasks box together, so a long
       // task list moves to a fresh page as a whole instead of leaving the
-      // title bar and "Tareas:" label orphaned at the bottom of this one.
+      // title bar orphaned at the bottom of this one.
       let neededForHeader = 15 + 2; // title bar + a small safety buffer
-      if (item.tasks.length) neededForHeader += 5 + measureTasksTableHeight(doc, item.tasks, leftColW);
+      if (item.tasks.length) neededForHeader += 3 + measureTasksTableHeight(doc, item.tasks, leftColW);
       y = ensureSpace(doc, y, neededForHeader, margins);
 
-      doc.setFillColor(...PDF_PRIMARY);
+      doc.setFillColor(...PDF_SKY);
       doc.roundedRect(margins.left, y, pageWidth - margins.left - margins.right, 8, PDF_RADIUS, PDF_RADIUS, "F");
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       const responsablesText = (item.responsibles || []).filter(Boolean).join(" / ") || "-";
       doc.text(`${item.title || "(sin título)"}: ${responsablesText}`, margins.left + 2, y + 5.5);
-      doc.setTextColor(0, 0, 0);
       y += 15;
 
       const blockStartY = y;
@@ -1190,10 +1209,7 @@
       let rightY = null;
 
       if (item.tasks.length) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text("Tareas:", margins.left, blockStartY);
-        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY + 5, leftColW, margins);
+        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY + 3, leftColW, margins);
       }
 
       if (item.images.length) {

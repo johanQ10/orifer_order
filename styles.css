@@ -340,7 +340,10 @@ table {
 th, td {
   border: 1px solid var(--border);
   padding: 8px;
-  text-align: left;
+  text-align: center;
+}
+table input, table select, table textarea {
+  text-align: center;
 }
 th {
   background: var(--primary);
@@ -367,39 +370,13 @@ td select.spec-corte:focus {
 .col-action { width: 40px; text-align: center; }
 
 .specs-manual-col-head { display: flex; align-items: center; gap: 4px; }
-.specs-manual-col-title {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: #fff;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 2px 4px;
-}
-.specs-manual-col-title::placeholder { color: rgba(255,255,255,0.75); }
-.specs-manual-col-title:focus { outline: 1px solid rgba(255,255,255,0.8); border-radius: 4px; box-shadow: none; }
+.specs-manual-row-title-cell { display: flex; align-items: center; gap: 4px; min-width: 140px; }
 .btn-remove-manual-col { color: rgba(255,255,255,0.85); }
 .btn-remove-manual-col:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
-.specs-manual-row-title-cell {
-  background: var(--secondary-bg);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 140px;
-}
-.specs-manual-row-title {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 2px 4px;
-}
-.specs-manual-row-title:focus { outline: 1px solid var(--accent); border-radius: 4px; box-shadow: none; }
-
+.specs-manual-col-title,
+.specs-manual-row-title,
+.specs-manual-corner-cell,
 .specs-manual-cell {
   width: 100%;
   min-width: 160px;
@@ -412,11 +389,21 @@ td select.spec-corte:focus {
   padding: 8px 10px;
   min-height: 34px;
   background: #fff;
+  color: var(--text);
 }
+.specs-manual-col-title:focus,
+.specs-manual-row-title:focus,
+.specs-manual-corner-cell:focus,
 .specs-manual-cell:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(0,167,219,0.16);
+}
+
+.specs-manual-col-title,
+.specs-manual-row-title {
+  flex: 1;
+  min-width: 0;
 }
 
 .item-card {
