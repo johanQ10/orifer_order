@@ -252,7 +252,7 @@
     "Luisa",
     "Nelly",
     "Kiara",
-    "Sofia",
+    "Sophia",
   ];
 
   function populateResponsableSelect(select) {
@@ -286,9 +286,12 @@
 
   function addTaskRow(taskListEl, text) {
     const row = cloneTpl("tpl-task");
-    $(".task-text", row).value = text || "";
+    const textarea = $(".task-text", row);
+    textarea.value = text || "";
+    textarea.addEventListener("input", () => autoResizeTextarea(textarea));
     $(".btn-remove-task", row).addEventListener("click", () => row.remove());
     taskListEl.appendChild(row);
+    autoResizeTextarea(textarea); // must run after appending: scrollHeight is unreliable on detached nodes
   }
 
   // ---------- Item table (optional free-form table per item) ----------
@@ -298,49 +301,106 @@
     el.style.height = `${el.scrollHeight}px`;
   }
 
-  function addTableColumn(tableWrap, title, value) {
+  function updateItemTableRemoveButtons(tableWrap) {
     const headerRow = $(".item-table-headers", tableWrap);
-    const dataRow = $(".item-table-row", tableWrap);
+    const tbody = $(".item-table-body", tableWrap);
+    const colCount = headerRow.children.length - 1; // minus the trailing row-action column
+    $$(".btn-remove-table-col", headerRow).forEach((btn) => {
+      btn.hidden = colCount <= 1;
+    });
+    const rowCount = $$("tr", tbody).length;
+    $$(".btn-remove-table-row", tbody).forEach((btn) => {
+      btn.hidden = rowCount <= 1;
+    });
+  }
+
+  function addItemTableColumn(tableWrap, title) {
+    const headerRow = $(".item-table-headers", tableWrap);
+    const tbody = $(".item-table-body", tableWrap);
+    const actionTh = headerRow.lastElementChild;
 
     const th = cloneTpl("tpl-item-table-col");
-    $(".item-table-col-title", th).value = title || "";
+    const colTitle = $(".item-table-col-title", th);
+    colTitle.value = title || "";
+    colTitle.addEventListener("input", () => autoResizeTextarea(colTitle));
     $(".btn-remove-table-col", th).addEventListener("click", () => {
       const idx = Array.from(headerRow.children).indexOf(th);
       th.remove();
-      if (dataRow.children[idx]) dataRow.children[idx].remove();
+      $$("tr", tbody).forEach((tr) => {
+        const cell = tr.children[idx];
+        if (cell) cell.remove();
+      });
+      updateItemTableRemoveButtons(tableWrap);
     });
-    headerRow.appendChild(th);
+    headerRow.insertBefore(th, actionTh);
+    autoResizeTextarea(colTitle); // must run after attaching: scrollHeight is unreliable on detached nodes
 
-    const td = cloneTpl("tpl-item-table-cell");
-    const textarea = $(".item-table-cell", td);
-    textarea.value = value || "";
-    textarea.addEventListener("input", () => autoResizeTextarea(textarea));
-    dataRow.appendChild(td);
-    autoResizeTextarea(textarea);
+    $$("tr", tbody).forEach((tr) => {
+      const td = cloneTpl("tpl-item-table-cell");
+      const textarea = $(".item-table-cell", td);
+      textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+      tr.insertBefore(td, tr.lastElementChild);
+      autoResizeTextarea(textarea);
+    });
+    updateItemTableRemoveButtons(tableWrap);
+  }
+
+  function addItemTableRow(tableWrap, values) {
+    const headerRow = $(".item-table-headers", tableWrap);
+    const tbody = $(".item-table-body", tableWrap);
+    const colCount = headerRow.children.length - 1; // minus the trailing row-action column
+
+    const tr = cloneTpl("tpl-item-table-row");
+    $(".btn-remove-table-row", tr).addEventListener("click", () => {
+      tr.remove();
+      updateItemTableRemoveButtons(tableWrap);
+    });
+
+    const cellTextareas = [];
+    for (let i = 0; i < colCount; i++) {
+      const td = cloneTpl("tpl-item-table-cell");
+      const textarea = $(".item-table-cell", td);
+      textarea.value = (values && values[i]) || "";
+      textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+      cellTextareas.push(textarea);
+      tr.insertBefore(td, tr.lastElementChild);
+    }
+    tbody.appendChild(tr);
+    cellTextareas.forEach(autoResizeTextarea); // must run after attaching: scrollHeight is unreliable on detached nodes
+    updateItemTableRemoveButtons(tableWrap);
   }
 
   function setupItemTable(item, gallery, data) {
     const tableWrap = cloneTpl("tpl-item-table");
     item.insertBefore(tableWrap, gallery);
 
-    $(".btn-add-table-col", tableWrap).addEventListener("click", () => addTableColumn(tableWrap));
+    $(".btn-add-table-col", tableWrap).addEventListener("click", () => addItemTableColumn(tableWrap));
+    $(".btn-add-table-row", tableWrap).addEventListener("click", () => addItemTableRow(tableWrap));
     $(".btn-remove-item-table", tableWrap).addEventListener("click", () => {
       tableWrap.hidden = true;
-      $(".item-table-headers", tableWrap).innerHTML = "";
-      $(".item-table-row", tableWrap).innerHTML = "";
+      $(".item-table-headers", tableWrap).innerHTML = '<th class="col-action"></th>';
+      $(".item-table-body", tableWrap).innerHTML = "";
     });
 
     $(".btn-add-table", item).addEventListener("click", () => {
       if (!tableWrap.hidden) return;
       tableWrap.hidden = false;
-      if (!$(".item-table-headers", tableWrap).children.length) {
-        addTableColumn(tableWrap);
-        addTableColumn(tableWrap);
+      if ($(".item-table-headers", tableWrap).children.length <= 1) {
+        addItemTableColumn(tableWrap);
+        addItemTableColumn(tableWrap);
+        addItemTableRow(tableWrap);
       }
     });
 
     if (data && data.table && Array.isArray(data.table.titles) && data.table.titles.length) {
-      data.table.titles.forEach((title, i) => addTableColumn(tableWrap, title, data.table.values && data.table.values[i]));
+      data.table.titles.forEach((title) => addItemTableColumn(tableWrap, title));
+      const rows = Array.isArray(data.table.rows)
+        ? data.table.rows
+        : data.table.values
+        ? [data.table.values]
+        : [];
+      if (rows.length) rows.forEach((r) => addItemTableRow(tableWrap, r));
+      else addItemTableRow(tableWrap);
       tableWrap.hidden = false;
     }
   }
@@ -471,7 +531,7 @@
         table: hasTable
           ? {
               titles: colTitles.map((i) => i.value.trim()),
-              values: $$(".item-table-cell", itemEl).map((i) => i.value),
+              rows: $$(".item-table-body tr", itemEl).map((tr) => $$(".item-table-cell", tr).map((c) => c.value)),
             }
           : null,
       };
@@ -1238,13 +1298,19 @@
         y += 4;
         const n = item.table.titles.length;
         const colW = contentWidth / n;
+        const dataRows = Array.isArray(item.table.rows) && item.table.rows.length
+          ? item.table.rows
+          : item.table.values
+          ? [item.table.values]
+          : [[]];
         y = drawRoundedTable(doc, {
           x: margins.left,
           y,
           colWidths: Array(n).fill(colW),
-          cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_PRIMARY, textColor: [255, 255, 255] } : {}),
+          cellStyle: (ri) => (ri === 0 ? { bold: true, fill: PDF_SKY, textColor: [0, 0, 0] } : {}),
           margins,
-          rows: [item.table.titles.map((t) => t || "-"), item.table.values.map((v) => v || "-")],
+          align: "center",
+          rows: [item.table.titles.map((t) => t || "-"), ...dataRows.map((r) => r.map((v) => v || "-"))],
         });
       }
 

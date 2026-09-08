@@ -296,8 +296,13 @@ input[type="text"]:focus, input[type="date"]:focus, select:focus {
   font-weight: 600;
   font-size: 0.85rem;
   padding: 2px 4px;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
 }
 .item-table-col-title:focus { outline: 1px solid var(--accent); border-radius: 4px; box-shadow: none; }
+.btn-text-icon { font-size: 0.78rem; font-weight: 600; padding: 4px 8px; width: auto; }
+.item-table-toolbar .btn-text-icon:hover { background: rgba(0,167,219,0.14); color: var(--accent-dark); }
 .item-table-cell {
   width: 100%;
   border: 1px solid var(--border);
@@ -467,6 +472,25 @@ td select.spec-corte:focus {
   color: var(--text-muted);
 }
 .task-row input { flex: 1; }
+.task-text {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  width: 100%;
+  background: #fff;
+  color: var(--text);
+  min-height: 40px;
+  resize: none;
+  overflow: hidden;
+}
+.task-text:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,167,219,0.16);
+}
 
 .gallery {
   display: flex;

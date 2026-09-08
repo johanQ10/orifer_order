@@ -204,12 +204,13 @@
   <div class="item-table-wrap" hidden>
     <div class="item-table-toolbar">
       <button type="button" class="btn-icon btn-remove-item-table" title="Eliminar tabla">✕</button>
-      <button type="button" class="btn-icon btn-add-table-col" title="Agregar columna">+</button>
+      <button type="button" class="btn-icon btn-text-icon btn-add-table-row" title="Agregar fila">+ Fila</button>
+      <button type="button" class="btn-icon btn-text-icon btn-add-table-col" title="Agregar columna">+ Columna</button>
     </div>
     <div class="item-table-scroll">
       <table class="item-table">
-        <thead><tr class="item-table-headers"></tr></thead>
-        <tbody><tr class="item-table-row"></tr></tbody>
+        <thead><tr class="item-table-headers"><th class="col-action"></th></tr></thead>
+        <tbody class="item-table-body"></tbody>
       </table>
     </div>
   </div>
@@ -218,7 +219,7 @@
 <template id="tpl-item-table-col">
   <th>
     <div class="item-table-col-head">
-      <input type="text" class="item-table-col-title" placeholder="Título">
+      <textarea class="item-table-col-title" rows="1" placeholder="Título"></textarea>
       <button type="button" class="btn-icon btn-remove-table-col" title="Eliminar columna">✕</button>
     </div>
   </th>
@@ -228,9 +229,15 @@
   <td><textarea class="item-table-cell" rows="1"></textarea></td>
 </template>
 
+<template id="tpl-item-table-row">
+  <tr>
+    <td class="col-action"><button type="button" class="btn-icon btn-remove-table-row" title="Eliminar fila">✕</button></td>
+  </tr>
+</template>
+
 <template id="tpl-task">
   <li class="task-row">
-    <input type="text" class="task-text" placeholder="Descripción de la tarea">
+    <textarea class="task-text" rows="1" placeholder="Descripción de la tarea"></textarea>
     <button class="btn-icon btn-remove-task" title="Eliminar tarea">✕</button>
   </li>
 </template>
