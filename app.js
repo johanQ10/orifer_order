@@ -915,21 +915,97 @@
     return y;
   }
 
+  // "*bold*" text support — lets a plain textarea mark part of its text bold
+  // in the PDF without needing a rich-text editor. Only applied to cells that
+  // aren't already fully bold (titles/headers keep their existing behavior).
+
+  function parseBoldRuns(text) {
+    const runs = [];
+    const re = /\*([^*]+)\*/g;
+    let lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > lastIndex) runs.push({ text: text.slice(lastIndex, m.index), bold: false });
+      runs.push({ text: m[1], bold: true });
+      lastIndex = re.lastIndex;
+    }
+    if (lastIndex < text.length) runs.push({ text: text.slice(lastIndex), bold: false });
+    return runs.length ? runs : [{ text: "", bold: false }];
+  }
+
+  // Lays out text into visual lines, each an array of {text, bold} runs. A
+  // source line that fits within maxWidth keeps its inline bold spans; one
+  // that's too long falls back to plain word-wrapping (asterisks stripped,
+  // no inline bold for that line) since jsPDF can't wrap mixed-weight text.
+  function layoutBoldLines(doc, text, maxWidth) {
+    const sourceLines = String(text ?? "").split("\n");
+    const visualLines = [];
+    sourceLines.forEach((sourceLine) => {
+      const runs = parseBoldRuns(sourceLine);
+      let totalWidth = 0;
+      runs.forEach((r) => {
+        doc.setFont("helvetica", r.bold ? "bold" : "normal");
+        totalWidth += doc.getTextWidth(r.text);
+      });
+      if (totalWidth <= maxWidth) {
+        visualLines.push(runs);
+      } else {
+        doc.setFont("helvetica", "normal");
+        const clean = runs.map((r) => r.text).join("");
+        doc.splitTextToSize(clean, maxWidth).forEach((w) => visualLines.push([{ text: w, bold: false }]));
+      }
+    });
+    doc.setFont("helvetica", "normal");
+    return visualLines;
+  }
+
+  // Uniform shape for table-cell rendering: an array of visual lines, each an
+  // array of {text, bold} runs. Bold cells (column/row headers) keep their
+  // existing plain wrapping untouched; everything else gets "*bold*" support.
+  function getCellVisualLines(doc, text, maxWidth, isBold) {
+    if (isBold) {
+      doc.setFont("helvetica", "bold");
+      return doc.splitTextToSize(String(text ?? ""), maxWidth).map((l) => [{ text: l, bold: true }]);
+    }
+    return layoutBoldLines(doc, text, maxWidth);
+  }
+
+  function measureVisualLineWidth(doc, visualLine) {
+    let w = 0;
+    visualLine.forEach((r) => {
+      doc.setFont("helvetica", r.bold ? "bold" : "normal");
+      w += doc.getTextWidth(r.text);
+    });
+    return w;
+  }
+
+  function drawVisualLine(doc, visualLine, anchorX, yBaseline, align) {
+    let cx = anchorX;
+    if (align === "center") cx = anchorX - measureVisualLineWidth(doc, visualLine) / 2;
+    visualLine.forEach((r) => {
+      doc.setFont("helvetica", r.bold ? "bold" : "normal");
+      doc.text(r.text, cx, yBaseline);
+      cx += doc.getTextWidth(r.text);
+    });
+  }
+
   // Draws a small table with genuinely rounded outer corners. jspdf-autotable
   // only draws square cells, and overlaying a rounded stroke on top of it
   // leaves the square corners peeking out past the curve, so cell fills here
   // are painted inside a clip region shaped like the rounded rect instead.
   function drawRoundedTable(doc, { x, y, colWidths, rows, cellStyle, margins, fontSize = 10, align = "left" }) {
-    const cellPadding = 3;
+    const cellPadding = 2; // horizontal inset (also bounds the text-wrap width)
+    const cellPaddingV = 1.5; // vertical inset, kept separate so it can be tuned independently
     const lineHeight = 4.2;
     const width = colWidths.reduce((a, b) => a + b, 0);
 
     doc.setFontSize(fontSize);
-    const rowHeights = rows.map((cells) =>
+    const rowHeights = rows.map((cells, ri) =>
       Math.max(
         ...cells.map((text, ci) => {
-          const lines = doc.splitTextToSize(String(text ?? ""), colWidths[ci] - cellPadding * 2);
-          return lines.length * lineHeight + cellPadding * 2;
+          const style = (cellStyle && cellStyle(ri, ci)) || {};
+          const visualLines = getCellVisualLines(doc, text, colWidths[ci] - cellPadding * 2, !!style.bold);
+          return visualLines.length * lineHeight + cellPaddingV * 2;
         })
       )
     );
@@ -981,21 +1057,24 @@
       let rx = x;
       cells.forEach((text, ci) => {
         const style = (cellStyle && cellStyle(ri, ci)) || {};
-        doc.setFont("helvetica", style.bold ? "bold" : "normal");
         doc.setFontSize(fontSize);
         doc.setTextColor(...(style.textColor || [31, 36, 48]));
-        const lines = doc.splitTextToSize(String(text ?? ""), colWidths[ci] - cellPadding * 2);
-        const blockTop = ry + (rowHeights[ri] - lines.length * lineHeight) / 2;
-        const textY = blockTop + lineHeight * 0.72;
-        if (align === "center") {
-          doc.text(lines, rx + colWidths[ci] / 2, textY, { align: "center" });
-        } else {
-          doc.text(lines, rx + cellPadding, textY);
-        }
+        const maxWidth = colWidths[ci] - cellPadding * 2;
+        const visualLines = getCellVisualLines(doc, text, maxWidth, !!style.bold);
+        const blockTop = ry + (rowHeights[ri] - visualLines.length * lineHeight) / 2;
+        visualLines.forEach((vLine, li) => {
+          const lineY = blockTop + lineHeight * 0.72 + li * lineHeight;
+          if (align === "center") {
+            drawVisualLine(doc, vLine, rx + colWidths[ci] / 2, lineY, "center");
+          } else {
+            drawVisualLine(doc, vLine, rx + cellPadding, lineY, "left");
+          }
+        });
         rx += colWidths[ci];
       });
       ry += rowHeights[ri];
     });
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
 
     return startY + totalHeight;
@@ -1008,14 +1087,13 @@
     const padX = 4;
     const padTop = 2;
     const padBottom = 2;
-    const rowPadding = 4;
+    const rowPadding = 2;
     const checkboxSize = 3.2;
     const textWidth = width - padX - checkboxSize - 6;
     const lineHeight = 5;
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     const rowHeights = tasks.map((task) => {
-      const lines = doc.splitTextToSize(task, textWidth);
+      const lines = layoutBoldLines(doc, task, textWidth);
       return lines.length * lineHeight + rowPadding;
     });
     return padTop + rowHeights.reduce((a, b) => a + b, 0) + padBottom;
@@ -1023,19 +1101,18 @@
 
   function drawTasksTable(doc, tasks, x, y, width, margins) {
     if (!tasks.length) return y;
-    const padX = 4;
-    const padTop = 2;
-    const padBottom = 2;
-    const rowPadding = 4;
-    const checkboxSize = 3.2;
+    const padX = 2;
+    const padTop = 0;
+    const padBottom = 0;
+    const rowPadding = 2;
+    const checkboxSize = 3.5;
     const textX = x + padX + checkboxSize + 3;
     const textWidth = x + width - 3 - textX;
     const lineHeight = 5;
 
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     const rowHeights = tasks.map((task) => {
-      const lines = doc.splitTextToSize(task, textWidth);
+      const lines = layoutBoldLines(doc, task, textWidth);
       return lines.length * lineHeight + rowPadding;
     });
     const totalHeight = padTop + rowHeights.reduce((a, b) => a + b, 0) + padBottom;
@@ -1049,7 +1126,8 @@
 
     let ry = startY + padTop;
     tasks.forEach((task, i) => {
-      const lines = doc.splitTextToSize(task, textWidth);
+      doc.setFontSize(10);
+      const lines = layoutBoldLines(doc, task, textWidth);
       const rowH = rowHeights[i];
       const blockHeight = lines.length * lineHeight;
       const blockTop = ry + (rowH - blockHeight) / 2;
@@ -1060,10 +1138,11 @@
       doc.setLineWidth(0.5);
       doc.roundedRect(x + padX, checkboxY, checkboxSize, checkboxSize, 0.7, 0.7, "S");
 
-      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
-      doc.text(lines, textX, textBaselineY);
+      lines.forEach((vLine, li) => {
+        drawVisualLine(doc, vLine, textX, textBaselineY + li * lineHeight, "left");
+      });
 
       if (i < tasks.length - 1) {
         const dividerY = ry + rowH;
@@ -1074,6 +1153,7 @@
       ry += rowH;
     });
 
+    doc.setFont("helvetica", "normal");
     return startY + totalHeight;
   }
 
@@ -1082,6 +1162,7 @@
   // browsers when the page is opened directly as a file:// URL, which
   // silently dropped the logo from the PDF.
   let logoForPdfCache = null;
+  
   function getLogoForPdf() {
     if (logoForPdfCache) return logoForPdfCache;
     logoForPdfCache = new Promise((resolve, reject) => {
@@ -1176,7 +1257,7 @@
         ["Cliente", data.general.cliente || "-", "Fecha de entrega", formatDateDMY(data.general.fechaEntrega) || "-"],
       ],
     });
-    y += 10;
+    y += 8;
 
     if (data.specsMode === "manual") {
       const manual = data.specsManual;
@@ -1185,6 +1266,7 @@
         (manual.corner ||
           (manual.columnTitles || []).some(Boolean) ||
           (manual.rows || []).some((r) => r.title || (r.cells || []).some(Boolean)));
+
       if (hasManualContent) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
@@ -1206,7 +1288,7 @@
             ...manual.rows.map((r) => [r.title || "-", ...r.cells.map((c) => c || "-")]),
           ],
         });
-        y += 10;
+        y += 5;
       }
     } else {
       const specRows = data.specs.filter(
@@ -1241,7 +1323,7 @@
             ]),
           ],
         });
-        y += 10;
+        y += 5;
       }
     }
 

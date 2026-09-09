@@ -1,0 +1,199 @@
+{
+  "general": {
+    "fechaPedido": "2026-08-24",
+    "cliente": "Made",
+    "fechaEntrega": "2026-08-26",
+    "numeroOrden": "NOTA 100"
+  },
+  "specsMode": "manual",
+  "specs": [
+    {
+      "producto": "Body",
+      "tela": "Interlock",
+      "tallas": "12 de 3 meses",
+      "cuello": "-",
+      "corte": "-",
+      "color": "Blanco"
+    },
+    {
+      "producto": "Sudadera",
+      "tela": "Muselina",
+      "tallas": "1 M",
+      "cuello": "-",
+      "corte": "D",
+      "color": "Azul claro"
+    },
+    {
+      "producto": "Sudadera",
+      "tela": "Muselina",
+      "tallas": "2 talla 16",
+      "cuello": "-",
+      "corte": "-",
+      "color": "Azul claro"
+    },
+    {
+      "producto": "Sudadera",
+      "tela": "Muselina",
+      "tallas": "2 talla L",
+      "cuello": "-",
+      "corte": "C",
+      "color": "Azul claro"
+    },
+    {
+      "producto": "Sudadera",
+      "tela": "Muselina",
+      "tallas": "1 talla 14",
+      "cuello": "-",
+      "corte": "-",
+      "color": "Rojo"
+    },
+    {
+      "producto": "Sudadera",
+      "tela": "Muselina",
+      "tallas": "1 talla XL",
+      "cuello": "-",
+      "corte": "C",
+      "color": "Rojo"
+    },
+    {
+      "producto": "Franela",
+      "tela": "Algodon 80%",
+      "tallas": "6 talla XL",
+      "cuello": "-",
+      "corte": "C",
+      "color": "Negra"
+    },
+    {
+      "producto": "Crop-Top",
+      "tela": "Algodon",
+      "tallas": "1 talla M",
+      "cuello": "-",
+      "corte": "-",
+      "color": "Verde agua"
+    },
+    {
+      "producto": "Crop-Top",
+      "tela": "Algodon",
+      "tallas": "1 talla M",
+      "cuello": "-",
+      "corte": "-",
+      "color": "Azul Claro"
+    },
+    {
+      "producto": "Franela",
+      "tela": "Algodon 80%",
+      "tallas": "2 talla S, 3 talla M",
+      "cuello": "-",
+      "corte": "D",
+      "color": "Rojo"
+    },
+    {
+      "producto": "Franela",
+      "tela": "Algodon 80%",
+      "tallas": "1 talla XL, 1 talla 2XL",
+      "cuello": "-",
+      "corte": "C",
+      "color": "Rojo"
+    },
+    {
+      "producto": "Franela",
+      "tela": "Algodon 80%",
+      "tallas": "2 talla 2XL, 2 talla 3XL",
+      "cuello": "-",
+      "corte": "C",
+      "color": "Blanco"
+    }
+  ],
+  "specsManual": {
+    "corner": "diejideji",
+    "columnTitles": [
+      "ijdi*e*jid",
+      "ijdfieji",
+      "ijdjide\ndede"
+    ],
+    "rows": [
+      {
+        "title": "dueduheu",
+        "cells": [
+          "*uhuhu\nuhuhu*",
+          "u*hu*hu",
+          "ihijiji"
+        ]
+      },
+      {
+        "title": "uhuhuh\nuhuh\nnhuh",
+        "cells": [
+          "huhu",
+          "uhuh",
+          "dedede\ndede\ndede"
+        ]
+      },
+      {
+        "title": "",
+        "cells": [
+          "",
+          "",
+          ""
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "title": "Telas",
+      "responsibles": [
+        "Duanscel"
+      ],
+      "tasks": [
+        "Comprar en el *Castillo* 3 metros de muselina roja (Bs)",
+        "Buscar muselina azul claro *en el local y darsela a Vladimir*",
+        "Revisar *si hay en el local* algodon rojo, verde agua, azul cielo. Si no hay comprar donde Juan 2k de cada color (antes de irte revisa cual reeb falta",
+        "Comprar en RVE 2 kg de algodon blanco 20-1 (divisas)"
+      ],
+      "images": [],
+      "table": null
+    },
+    {
+      "title": "Revisar/Separar/Cortar",
+      "responsibles": [
+        "Arianna",
+        "Duanscel"
+      ],
+      "tasks": [
+        "Las 6 franelas de algodón XL de hombre puede que ya estén listas, si es así colócalas en la cesta, de lo contrario, sepáralas de la bolsa donde esta el corte negro",
+        "Los 12 bodys talla 3 meses separalos de la bolsa de bodys. Si no está especificamente esta talla, agarra",
+        "Cortar: 2 Crop-Top/Sudaderas rojas/Franela 2XL roja"
+      ],
+      "images": [],
+      "table": null
+    },
+    {
+      "title": "Rematar/Embolsar",
+      "responsibles": [
+        "Emilce"
+      ],
+      "tasks": [
+        "Doblado en bolas normal\nssdfsdf\nsdsdsd",
+        "Retirar en el local el Miercoles al final de la tarde\nsfaefe"
+      ],
+      "images": [],
+      "table": {
+        "titles": [
+          "dedede",
+          "dedede"
+        ],
+        "rows": [
+          [
+            "dedede",
+            "dedede"
+          ],
+          [
+            "vevev",
+            "dede"
+          ]
+        ]
+      }
+    }
+  ],
+  "annexes": []
+}
