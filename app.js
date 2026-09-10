@@ -696,25 +696,12 @@
     await idbSet("dirSchemaVersion", DIR_SCHEMA_VERSION).catch(() => {});
   }
 
-  // ---------- Filename convention: <numero_pedido>_<dd>_<mm>_<yy>.json ----------
-
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
+  // ---------- Filename convention: <numero_pedido>_<nombre_cliente>.json ----------
 
   function buildOrderFilename(data) {
     const numero = slugify(data.general.numeroOrden) || "pedido";
-    let d;
-    if (data.general.fechaPedido) {
-      const [y, m, day] = data.general.fechaPedido.split("-").map(Number);
-      d = new Date(y, m - 1, day);
-    } else {
-      d = new Date();
-    }
-    const dd = pad2(d.getDate());
-    const mm = pad2(d.getMonth() + 1);
-    const yy = pad2(d.getFullYear() % 100);
-    return `${numero}_${dd}_${mm}_${yy}.json`;
+    const cliente = slugify(data.general.cliente) || "cliente";
+    return `${numero}_${cliente}.json`;
   }
 
   function triggerBrowserDownload(blob, filename) {
@@ -816,10 +803,10 @@
   });
 
   function parseFilenameLabel(filename) {
-    const match = /^(.+?)_(\d{2})_(\d{2})_(\d{2})\.json$/i.exec(filename);
+    const match = /^(.+?)_(.+)\.json$/i.exec(filename);
     if (!match) return filename;
-    const [, numero, dd, mm, yy] = match;
-    return `Pedido ${numero} — ${dd}/${mm}/20${yy}`;
+    const [, numero, cliente] = match;
+    return `Pedido ${numero} — ${cliente.replace(/_/g, " ")}`;
   }
 
   async function loadPedidoFromHandle(dirHandle, filename) {
@@ -933,27 +920,62 @@
     return runs.length ? runs : [{ text: "", bold: false }];
   }
 
-  // Lays out text into visual lines, each an array of {text, bold} runs. A
-  // source line that fits within maxWidth keeps its inline bold spans; one
-  // that's too long falls back to plain word-wrapping (asterisks stripped,
-  // no inline bold for that line) since jsPDF can't wrap mixed-weight text.
+  // Splits {text, bold} runs into individual word/whitespace tokens (each
+  // keeping its run's bold flag) so word-wrapping can break between them
+  // without ever losing track of which characters are bold.
+  function tokenizeRuns(runs) {
+    const tokens = [];
+    runs.forEach((run) => {
+      run.text.split(/(\s+)/).forEach((piece) => {
+        if (piece.length) tokens.push({ text: piece, bold: run.bold });
+      });
+    });
+    return tokens;
+  }
+
+  // Greedily packs word/whitespace tokens into lines no wider than maxWidth,
+  // measuring each token with its own font weight — this is what lets a bold
+  // span keep working after the line wraps, unlike jsPDF's splitTextToSize
+  // (which only wraps plain, single-weight text).
+  function packTokensIntoLines(doc, tokens, maxWidth) {
+    const lines = [];
+    let current = [];
+    let currentWidth = 0;
+
+    function tokenWidth(tok) {
+      doc.setFont("helvetica", tok.bold ? "bold" : "normal");
+      return doc.getTextWidth(tok.text);
+    }
+
+    function pushLine() {
+      while (current.length && /^\s+$/.test(current[current.length - 1].text)) current.pop();
+      lines.push(current.length ? current : [{ text: "", bold: false }]);
+      current = [];
+      currentWidth = 0;
+    }
+
+    tokens.forEach((tok) => {
+      const w = tokenWidth(tok);
+      const isSpace = /^\s+$/.test(tok.text);
+      if (current.length && currentWidth + w > maxWidth) {
+        if (isSpace) return; // don't start the next line with the space that caused the wrap
+        pushLine();
+      }
+      current.push(tok);
+      currentWidth += w;
+    });
+    pushLine();
+    return lines;
+  }
+
+  // Lays out text into visual lines, each an array of {text, bold} runs,
+  // wrapping to maxWidth while preserving "*bold*" spans across the wrap.
   function layoutBoldLines(doc, text, maxWidth) {
     const sourceLines = String(text ?? "").split("\n");
     const visualLines = [];
     sourceLines.forEach((sourceLine) => {
-      const runs = parseBoldRuns(sourceLine);
-      let totalWidth = 0;
-      runs.forEach((r) => {
-        doc.setFont("helvetica", r.bold ? "bold" : "normal");
-        totalWidth += doc.getTextWidth(r.text);
-      });
-      if (totalWidth <= maxWidth) {
-        visualLines.push(runs);
-      } else {
-        doc.setFont("helvetica", "normal");
-        const clean = runs.map((r) => r.text).join("");
-        doc.splitTextToSize(clean, maxWidth).forEach((w) => visualLines.push([{ text: w, bold: false }]));
-      }
+      const tokens = tokenizeRuns(parseBoldRuns(sourceLine));
+      packTokensIntoLines(doc, tokens, maxWidth).forEach((line) => visualLines.push(line));
     });
     doc.setFont("helvetica", "normal");
     return visualLines;
@@ -1082,79 +1104,104 @@
 
   // Renders the task list as a bordered box with a divider line between
   // rows, so tasks read as a table instead of a loose stack of lines.
-  function measureTasksTableHeight(doc, tasks, width) {
-    if (!tasks.length) return 0;
-    const padX = 4;
-    const padTop = 2;
-    const padBottom = 2;
-    const rowPadding = 2;
-    const checkboxSize = 3.2;
+  // Single source of truth for the tasks box's geometry — measurement and
+  // drawing used to keep separate copies of these numbers and drifted out of
+  // sync, which threw off the page-break math.
+  const TASKS_BOX = { padX: 2, padTop: 0, padBottom: 0, rowPadding: 2, checkboxSize: 3.5, lineHeight: 5 };
+
+  function computeTaskRows(doc, tasks, width) {
+    const { padX, checkboxSize, rowPadding, lineHeight } = TASKS_BOX;
     const textWidth = width - padX - checkboxSize - 6;
-    const lineHeight = 5;
     doc.setFontSize(10);
-    const rowHeights = tasks.map((task) => {
+    return tasks.map((task) => {
       const lines = layoutBoldLines(doc, task, textWidth);
-      return lines.length * lineHeight + rowPadding;
+      return { lines, rowH: lines.length * lineHeight + rowPadding };
     });
-    return padTop + rowHeights.reduce((a, b) => a + b, 0) + padBottom;
   }
 
-  function drawTasksTable(doc, tasks, x, y, width, margins) {
+  function measureTasksTableHeight(doc, tasks, width) {
+    if (!tasks.length) return 0;
+    const rows = computeTaskRows(doc, tasks, width);
+    return TASKS_BOX.padTop + rows.reduce((a, r) => a + r.rowH, 0) + TASKS_BOX.padBottom;
+  }
+
+  // Renders the task list as one or more bordered boxes. A long list that
+  // doesn't fit the remaining page splits into its own box on the next page
+  // instead of moving the whole thing (and the item title above it) there
+  // together, which used to leave a large blank gap on the page it left.
+  function drawTasksTable(doc, tasks, x, y, width, margins, allowSplit) {
     if (!tasks.length) return y;
-    const padX = 2;
-    const padTop = 0;
-    const padBottom = 0;
-    const rowPadding = 2;
-    const checkboxSize = 3.5;
+    const { padX, padTop, padBottom, checkboxSize, lineHeight } = TASKS_BOX;
     const textX = x + padX + checkboxSize + 3;
-    const textWidth = x + width - 3 - textX;
-    const lineHeight = 5;
+    const rows = computeTaskRows(doc, tasks, width);
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    doc.setFontSize(10);
-    const rowHeights = tasks.map((task) => {
-      const lines = layoutBoldLines(doc, task, textWidth);
-      return lines.length * lineHeight + rowPadding;
-    });
-    const totalHeight = padTop + rowHeights.reduce((a, b) => a + b, 0) + padBottom;
+    function drawSegment(segRows, startY) {
+      const segHeight = padTop + segRows.reduce((a, r) => a + r.rowH, 0) + padBottom;
+      doc.setDrawColor(...PDF_BORDER);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, startY, width, segHeight, PDF_RADIUS, PDF_RADIUS, "S");
 
-    y = ensureSpace(doc, y, totalHeight, margins);
-    const startY = y;
+      let ry = startY + padTop;
+      segRows.forEach((r, i) => {
+        const blockHeight = r.lines.length * lineHeight;
+        const blockTop = ry + (r.rowH - blockHeight) / 2;
+        const textBaselineY = blockTop + lineHeight * 0.72;
+        const checkboxY = ry + r.rowH / 2 - checkboxSize / 2;
 
-    doc.setDrawColor(...PDF_BORDER);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, startY, width, totalHeight, PDF_RADIUS, PDF_RADIUS, "S");
+        doc.setDrawColor(...PDF_ACCENT);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(x + padX, checkboxY, checkboxSize, checkboxSize, 0.7, 0.7, "S");
 
-    let ry = startY + padTop;
-    tasks.forEach((task, i) => {
-      doc.setFontSize(10);
-      const lines = layoutBoldLines(doc, task, textWidth);
-      const rowH = rowHeights[i];
-      const blockHeight = lines.length * lineHeight;
-      const blockTop = ry + (rowH - blockHeight) / 2;
-      const textBaselineY = blockTop + lineHeight * 0.72;
-      const checkboxY = ry + rowH / 2 - checkboxSize / 2;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        r.lines.forEach((vLine, li) => {
+          drawVisualLine(doc, vLine, textX, textBaselineY + li * lineHeight, "left");
+        });
 
-      doc.setDrawColor(...PDF_ACCENT);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(x + padX, checkboxY, checkboxSize, checkboxSize, 0.7, 0.7, "S");
-
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      lines.forEach((vLine, li) => {
-        drawVisualLine(doc, vLine, textX, textBaselineY + li * lineHeight, "left");
+        if (i < segRows.length - 1) {
+          const dividerY = ry + r.rowH;
+          doc.setDrawColor(...PDF_BORDER);
+          doc.setLineWidth(0.2);
+          doc.line(x, dividerY, x + width, dividerY);
+        }
+        ry += r.rowH;
       });
+      return startY + segHeight;
+    }
 
-      if (i < tasks.length - 1) {
-        const dividerY = ry + rowH;
-        doc.setDrawColor(...PDF_BORDER);
-        doc.setLineWidth(0.2);
-        doc.line(x, dividerY, x + width, dividerY);
+    if (allowSplit === false) {
+      // Used when tasks share a row with an images column that can't split
+      // itself — splitting the tasks box here would draw the two columns on
+      // mismatched pages, so the whole box moves together as before.
+      const totalHeight = padTop + rows.reduce((a, r) => a + r.rowH, 0) + padBottom;
+      y = ensureSpace(doc, y, totalHeight, margins);
+      const endY = drawSegment(rows, y);
+      doc.setFont("helvetica", "normal");
+      return endY;
+    }
+
+    let segStartY = y;
+    let segment = [];
+    let segOffset = 0;
+
+    rows.forEach((r) => {
+      const neededIfClosedHere = padTop + segOffset + r.rowH + padBottom;
+      if (segment.length && segStartY + neededIfClosedHere > pageHeight - margins.bottom) {
+        drawSegment(segment, segStartY);
+        doc.addPage();
+        segStartY = margins.top;
+        segment = [];
+        segOffset = 0;
       }
-      ry += rowH;
+      segment.push(r);
+      segOffset += r.rowH;
     });
+
+    const endY = drawSegment(segment, segStartY);
 
     doc.setFont("helvetica", "normal");
-    return startY + totalHeight;
+    return endY;
   }
 
   // Embedded as a base64 data URL (assets/logo.js) instead of read from the
@@ -1336,11 +1383,19 @@
       const rightColW = splitLayout ? contentWidth - leftColW - colGap : contentWidth;
       const imagesPerRow = splitLayout ? 2 : 3;
 
-      // Check room for the title bar AND the tasks box together, so a long
-      // task list moves to a fresh page as a whole instead of leaving the
-      // title bar orphaned at the bottom of this one.
+      // Reserve room for the title bar plus a minimum amount of task content
+      // beneath it, so the title never gets orphaned alone at the bottom of a
+      // page. When tasks can split across pages (no images sharing the row),
+      // only the first task needs to fit here — the rest may continue in a
+      // fresh bordered box on the next page. When an images column shares the
+      // row, the tasks box can't split (see drawTasksTable's allowSplit), so
+      // the whole box must be reserved together like before.
       let neededForHeader = 11 + 2; // title bar + gap + a small safety buffer
-      if (item.tasks.length) neededForHeader += measureTasksTableHeight(doc, item.tasks, leftColW);
+      if (item.tasks.length) {
+        neededForHeader += splitLayout
+          ? measureTasksTableHeight(doc, item.tasks, leftColW)
+          : measureTasksTableHeight(doc, item.tasks.slice(0, 1), leftColW);
+      }
       y = ensureSpace(doc, y, neededForHeader, margins);
 
       doc.setFillColor(...PDF_SKY);
@@ -1357,7 +1412,7 @@
       let rightY = null;
 
       if (item.tasks.length) {
-        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY, leftColW, margins);
+        leftY = drawTasksTable(doc, item.tasks, margins.left, blockStartY, leftColW, margins, !splitLayout);
       }
 
       if (item.images.length) {
